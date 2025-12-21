@@ -275,7 +275,6 @@ defaultproperties
     bIgnoreOutOfWorld=true
 
     StormNumber=0
-    /*
     StormData(0)=(StormDuration=200.0,ShrinkDuration=20.0,TargetRadiusScale=0.8,OutOfBoundsDPS=1)
     StormData(1)=(StormDuration=160.0,ShrinkDuration=20.0,TargetRadiusScale=0.8,OutOfBoundsDPS=1)
     StormData(2)=(StormDuration=120.0,ShrinkDuration=20.0,TargetRadiusScale=0.8,OutOfBoundsDPS=2)
@@ -286,8 +285,11 @@ defaultproperties
     StormData(7)=(StormDuration=60.0,ShrinkDuration=10.0,TargetRadiusScale=0.8,OutOfBoundsDPS=21)
     StormData(8)=(StormDuration=30.0,ShrinkDuration=10.0,TargetRadiusScale=0.8,OutOfBoundsDPS=34)
     StormData(9)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=55)
-    */
+    StormData(10)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=55)
+    StormData(11)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=55)
+    StormData(12)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=55)
 
+    /*
     StormData(0)=(StormDuration=10.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
     StormData(1)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
     StormData(2)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
@@ -307,4 +309,5 @@ defaultproperties
     StormData(16)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
     StormData(17)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
     StormData(18)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
+    */
 }

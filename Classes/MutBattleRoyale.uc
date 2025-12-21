@@ -1,6 +1,4 @@
-class MutBattleRoyale extends DMMutator
-	HideDropDown
-	CacheExempt;
+class MutBattleRoyale extends DMMutator;
 
 function bool CheckReplacement(Actor Other, out byte bSuperRelevant)
 {
