@@ -22,6 +22,9 @@ function bool CheckReplacement(Actor Other, out byte bSuperRelevant)
 		if (Other.IsA('AdrenalinePickup') && !BRYGame.bAllowAdrenaline)
         	return false;
 
+        if(Other.IsA('WeaponLocker'))
+            return false;
+
 		if( Other.IsA('WeaponPickup') )
 		{
 			if( BRYGame.bAllowSuperweapons && (Other.IsA('PainterPickup') || Other.IsA('RedeemerPickup')) )
@@ -67,8 +70,17 @@ function bool CheckReplacement(Actor Other, out byte bSuperRelevant)
         }
         else if (!BRYGame.bAllowPickups)
         	Other.bHidden = true;
-
 	}
+
+    if(Other.IsA('WeaponLocker'))
+    {
+        if (!BRYGame.bAllowPickups)
+        {
+            Other.GotoState('Disabled');
+        	Other.bHidden = true;
+        }
+    }
+
     if(Other.IsA('Vehicle'))
     {
         Vehicle(Other).bTeamLocked=false;

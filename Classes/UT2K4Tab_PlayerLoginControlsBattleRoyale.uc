@@ -38,7 +38,7 @@ function bool InternalOnPreDraw(Canvas C)
 		UpdatePlayerLists();
 
 		if ( ((PlayerOwner().myHUD == None) || !PlayerOwner().myHUD.IsInCinematic()) 
-        &&   (((GRI.bMatchHasBegun && !PlayerOwner().IsInState('GameEnded') && (GRI.MaxLives <= 0 || !PlayerOwner().PlayerReplicationInfo.bOnlySpectator))) || BRGameReplicationInfo(GRI).bWarmup) )
+        &&   (((GRI.bMatchHasBegun && !PlayerOwner().IsInState('GameEnded') && (GRI.MaxLives <= 0 || (PlayerOwner().PlayerReplicationInfo != None && !PlayerOwner().PlayerReplicationInfo.bOnlySpectator)))) || BRGameReplicationInfo(GRI).bWarmup) )
 			EnableComponent(b_Spec);
 		else
 			DisableComponent(b_Spec);

@@ -2,7 +2,10 @@ class StormZone extends Actor;
 
 #exec OBJ LOAD FILE=..\Textures\BattleRoyaleTex.utx
 #exec OBJ LOAD FILE=..\StaticMeshes\BattleRoyaleSM.usx
+#EXEC AUDIO IMPORT FILE="Sounds\StormSurge.wav" NAME="StormSurge"
 
+
+var() float InitialScaleMultiplier;
 var float ZoneRadius, TargetRadius;
 var float RadarRange;
 var vector MapCenter;
@@ -15,6 +18,8 @@ var bool bShrinking;
 var vector TargetLocation;
 var float MinimumRadius;
 var float TargetExtent;
+var Sound StormSurgeSound;
+var bool bSoundedSurge;
 
 var int StormNumber;
 
@@ -52,8 +57,7 @@ function PostBeginPlay()
     }
 
     StormNumber=0;
-    ZoneRadius = GetRadarRange() * 1.1; // start 10% bigger than map
-    //ZoneRadius = GetRadarRange() * 0.5;
+    ZoneRadius = GetRadarRange() * InitialScaleMultiplier;
     TargetRadius = ZoneRadius * StormData[StormNumber].TargetRadiusScale;
     SetRadius(ZoneRadius);
 
@@ -85,15 +89,38 @@ simulated event UnTouch(Actor other)
     //Level.GetLocalPlayerController().ClientMessage("Storm un touched "$other);
 }
 
+simulated function BroadcastSurgeSound()
+{
+    local Controller C;
+    if(Role == ROLE_Authority)
+    {
+        for(C=Level.ControllerList;C!=None;C=C.NextController)
+        {
+            if(C.Pawn != None && PlayerController(C) != None)
+                C.Pawn.PlayOwnedSound(StormSurgeSound, SLOT_None,255.0);
+        }
+    }
+}
+
 simulated function Tick(float DeltaTime)
 {
     local bool bWasShrinking;
     local vector newloc;
+    local float StormLife;
     
     super.Tick(DeltaTime);
     
+    StormLife = Level.TimeSeconds - StartTime;
+
     bWasShrinking = bShrinking;
-    bShrinking = Level.TimeSeconds - StartTime > StormData[StormNumber].StormDuration;
+    bShrinking = StormLife > StormData[StormNumber].StormDuration;
+
+    if(StormLife + 3.8 > StormData[StormNumber].StormDuration && !bSoundedSurge && !bShrinking)
+    {
+        BroadcastSurgeSound();
+        bSoundedSurge=true;
+    }
+
     if(bShrinking)
     {
         if(!bWasShrinking)
@@ -122,6 +149,7 @@ simulated function Tick(float DeltaTime)
         if(ZoneRadius<=TargetRadius)
         {
             // finished shrinking, stop shrinking and advance storm
+            bSoundedSurge=false;
             StormNumber=min(StormNumber+1, StormData.Length-1);
             StartTime = Level.TimeSeconds;
             newloc = GetAverageLocation();
@@ -238,6 +266,11 @@ function InformBots()
     }
 }
 
+function StormInfo GetInfo()
+{
+    return StormData[StormNumber];
+}
+
 defaultproperties
 {
     RemoteRole=ROLE_SimulatedProxy
@@ -247,6 +280,7 @@ defaultproperties
     CullDistance=0.0
     StaticMesh=StaticMesh'BattleRoyaleSM.StormMesh'
     ZoneTexture=FinalBlend'BattleRoyaleTex.Storm.StormShader'
+    StormSurgeSound=Sound'StormSurge'
     //ZoneTexture=FinalBlend'XEffectMat.Shock.ShockCoilFB'
 
     //StaticMesh=StaticMesh'BattleRoyaleMesh.ONS.EnergonShield'
@@ -274,20 +308,21 @@ defaultproperties
     Physics=PHYS_Flying
     bIgnoreOutOfWorld=true
 
+    InitialScaleMultiplier=1.1
     StormNumber=0
-    StormData(0)=(StormDuration=200.0,ShrinkDuration=20.0,TargetRadiusScale=0.8,OutOfBoundsDPS=1)
-    StormData(1)=(StormDuration=160.0,ShrinkDuration=20.0,TargetRadiusScale=0.8,OutOfBoundsDPS=1)
-    StormData(2)=(StormDuration=120.0,ShrinkDuration=20.0,TargetRadiusScale=0.8,OutOfBoundsDPS=2)
-    StormData(3)=(StormDuration=100.0,ShrinkDuration=15.0,TargetRadiusScale=0.8,OutOfBoundsDPS=3)
-    StormData(4)=(StormDuration=90.0,ShrinkDuration=15.0,TargetRadiusScale=0.8,OutOfBoundsDPS=5)
-    StormData(5)=(StormDuration=80.0,ShrinkDuration=15.0,TargetRadiusScale=0.8,OutOfBoundsDPS=8)
-    StormData(6)=(StormDuration=70.0,ShrinkDuration=10.0,TargetRadiusScale=0.8,OutOfBoundsDPS=13)
-    StormData(7)=(StormDuration=60.0,ShrinkDuration=10.0,TargetRadiusScale=0.8,OutOfBoundsDPS=21)
-    StormData(8)=(StormDuration=30.0,ShrinkDuration=10.0,TargetRadiusScale=0.8,OutOfBoundsDPS=34)
-    StormData(9)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=55)
-    StormData(10)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=55)
-    StormData(11)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=55)
-    StormData(12)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=55)
+    StormData(0)=(StormDuration=200.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=1)
+    StormData(1)=(StormDuration=160.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=1)
+    StormData(2)=(StormDuration=120.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=2)
+    StormData(3)=(StormDuration=100.0,ShrinkDuration=15.0,TargetRadiusScale=0.7,OutOfBoundsDPS=3)
+    StormData(4)=(StormDuration=90.0,ShrinkDuration=15.0,TargetRadiusScale=0.7,OutOfBoundsDPS=5)
+    StormData(5)=(StormDuration=80.0,ShrinkDuration=15.0,TargetRadiusScale=0.7,OutOfBoundsDPS=8)
+    StormData(6)=(StormDuration=70.0,ShrinkDuration=10.0,TargetRadiusScale=0.7,OutOfBoundsDPS=13)
+    StormData(7)=(StormDuration=60.0,ShrinkDuration=10.0,TargetRadiusScale=0.7,OutOfBoundsDPS=21)
+    StormData(8)=(StormDuration=30.0,ShrinkDuration=10.0,TargetRadiusScale=0.7,OutOfBoundsDPS=34)
+    StormData(9)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
+    StormData(10)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
+    StormData(11)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
+    StormData(12)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
 
     /*
     StormData(0)=(StormDuration=10.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)

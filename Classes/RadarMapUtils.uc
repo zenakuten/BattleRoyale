@@ -16,6 +16,9 @@ static function DrawRadarMap(
 	local plane SavedModulation;
     local vector MapCenter;
 
+    if(A == None)
+        return;
+
 	SavedModulation = C.ColorModulate;
     MapCenter = ONSHUD.MapCenter;
 

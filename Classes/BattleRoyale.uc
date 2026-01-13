@@ -1,5 +1,13 @@
 class BattleRoyale extends xLastManStandingGame;
 
+#EXEC AUDIO IMPORT FILE="Sounds\BusHorn.wav" NAME="BusHorn"
+#EXEC AUDIO IMPORT FILE="Sounds\didntdie.wav" NAME="didntdie"
+#EXEC AUDIO IMPORT FILE="Sounds\die4.wav" NAME="die4"
+#EXEC AUDIO IMPORT FILE="Sounds\goodbye.wav" NAME="goodbye"
+#EXEC AUDIO IMPORT FILE="Sounds\notsofast.wav" NAME="notsofast"
+#EXEC AUDIO IMPORT FILE="Sounds\simpledie.wav" NAME="simpledie"
+#EXEC AUDIO IMPORT FILE="Sounds\playshit.wav" NAME="playshit"
+
 var StormZone Storm;
 var config float StormDurationSeconds;
 var config float StormShrinkLength;
@@ -9,6 +17,15 @@ var BattleBus Bus;
 var TerrainInfo PrimaryTerrain;
 var int WarmupTimer;
 
+var array<Sound> BusLaunchSounds;
+
+/*
+replication
+{
+    reliable if(Role == ROLE_Authority)
+        Storm, Bus;
+}
+*/
 
 function PostBeginPlay()
 {
@@ -50,12 +67,14 @@ auto State PendingMatch
 {
 	function RestartPlayer( Controller aPlayer )
 	{
+        log("pendingmatch:restartplayer");
 		if ( CountDown <= 0 )
 			Super.RestartPlayer(aPlayer);
 	}
 
     function bool AddBot(optional string botName)
     {
+        log("pendingmatch:addbot");
         if ( Level.NetMode == NM_Standalone )
             InitialBots++;
         if ( botName != "" )
@@ -70,6 +89,7 @@ auto State PendingMatch
         local Controller P;
         local bool bReady;
 
+        log("pendingmatch:timer numplayers="$NumPlayers$" bWaitForNetPlayers="$bWaitForNetPlayers);
         Global.Timer();
 
         // first check if there are enough net players, and enough time has elapsed to give people
@@ -122,6 +142,7 @@ auto State PendingMatch
 
     function beginstate()
     {
+        log("pendingmatch:begin");
 		bWaitingToStartMatch = true;
         StartupStage = 0;
         if ( IsA('xLastManStandingGame') )
@@ -130,18 +151,43 @@ auto State PendingMatch
 
 Begin:
 	if ( bQuickStart )
+    {
+        log("quick start");
 		StartMatch();
+    }
 }
 
-State MatchInProgress
+state MatchInProgress
 {
     function Timer()
     {
+        local int i;
+        local Controller C;
+
         Global.Timer();
 
-        if ( NeedPlayers() && AddBot() && (RemainingBots > 0) )
+        /*
+        for(i=0;i<4;i++)
         {
-			RemainingBots--;
+            if ( NeedPlayers() && AddBot() && (RemainingBots > 0) )
+            {
+                RemainingBots--;
+            }
+        }
+        */
+        if (RemainingBots > 0)
+        {
+            Level.GetLocalPlayerController().ClientMessage("RemainingBots = "$RemainingBots);
+            for(C=Level.ControllerList;C!=None;C=C.NextController)
+            {
+                if(C.IsA('Bot') && C.Pawn == None)
+                {
+                    Level.GetLocalPlayerController().ClientMessage("Restart bot");
+                    RestartPlayer(C);
+                }
+            }
+
+            RemainingBots--;
         }
 
         if ( bOverTime )
@@ -163,10 +209,17 @@ State MatchInProgress
         GameReplicationInfo.ElapsedTime = ElapsedTime;
     }
 
+    function endstate()
+    {
+        log("matchinprogress:endstate");
+    }
+
     function beginstate()
     {
 		local PlayerReplicationInfo PRI;
+        local Controller C;
 
+        log("matchinprogress:beginstate");
 		foreach DynamicActors(class'PlayerReplicationInfo',PRI)
 			PRI.StartTime = 0;
 
@@ -175,7 +228,13 @@ State MatchInProgress
         StartupStage = 5;
         PlayStartupMessage();
         StartupStage = 6;
-        RemainingBots = InitialBots;
+        //RemainingBots = InitialBots;
+        RemainingBots = 0;
+        for(C=Level.ControllerList;C!=None;C=C.NextController)
+        {
+            if(C.IsA('Bot'))
+                RemainingBots++;
+        }
     }
 }
 
@@ -198,11 +257,37 @@ state Warmup
 {
     function Timer()
     {
+        local Controller P;
+        local bool bReady;
+        local int PlayerCount, ReadyCount;
+
         WarmupTimer--;
         if ( NeedPlayers() && AddBot() && (RemainingBots > 0) )
         {
 			RemainingBots--;
         }        
+
+		// check if players are ready
+        PlayerCount=0;
+        ReadyCount=0;
+        for (P=Level.ControllerList; P!=None; P=P.NextController )
+        {
+            if ( P.IsA('PlayerController') && (P.PlayerReplicationInfo != None)
+                && P.bIsPlayer)
+                {
+                    PlayerCount++;
+                    if(!P.PlayerReplicationInfo.bWaitingPlayer && P.PlayerReplicationInfo.bReadyToPlay)
+                        ReadyCount++;
+                }
+        }
+        log("warmup:timer p="$PlayerCount$" r="$ReadyCount);
+        //bReady=PlayerCount != 0 && ReadyCount != 0 && PlayerCount >= MinPlayers && float(ReadyCount)/float(PlayerCount) > 0.51;
+        bReady=PlayerCount != 0 && ReadyCount != 0 && float(ReadyCount)/float(PlayerCount) > 0.51;
+
+        if ( bReady && WarmupTimer > 10)
+        {
+            WarmupTimer = 10;
+        }
 
         if(WarmupTimer < 10)
             BroadcastLocalizedMessage(class'TimerMessage', WarmupTimer);
@@ -211,11 +296,24 @@ state Warmup
 
         if(WarmupTimer <= 0)
         {
-            KillBots(100);
+            RemainingBots=0;
             GotoState('Dropping');
         }
     }
 
+    /*
+    function bool AddBot(optional string botName)
+    {
+        log("warmup:addbot");
+        if ( Level.NetMode == NM_Standalone )
+            InitialBots++;
+        if ( botName != "" )
+			PreLoadNamedBot(botName);
+		else
+			PreLoadBot();
+        return true;
+    }
+    */
     function CheckScore(PlayerReplicationInfo Scorer)
     {
     }
@@ -233,6 +331,7 @@ state Warmup
     {
         local Controller C, Next;
         local int i;
+        log("warmup:endstate");
 
         BRGameReplicationInfo(Level.GRI).bWarmup=false;
         C = Level.ControllerList;
@@ -261,6 +360,7 @@ state Warmup
     function BeginState()
     {
         local Controller C;
+        log("warmup:beginstate");
         BRGameReplicationInfo(Level.GRI).bWarmup=true;
         MaxLives=0;
         for(C=Level.ControllerList;C!=None;C=C.NextController)
@@ -269,7 +369,7 @@ state Warmup
                 RestartPlayer(C);
         }
 
-        WarmupTimer = 15;
+        WarmupTimer = 90;
         
         //we mess with these only to allow spec/join to work in warmup
         bWaitingToStartMatch=false;
@@ -277,6 +377,12 @@ state Warmup
 
         SetTimer(1.0, true);
     }
+}
+
+// debug
+exec function EndWarmup()
+{
+    WarmupTimer = 10;
 }
 
 state Dropping
@@ -289,30 +395,62 @@ state Dropping
     {
     }
 
+    function Timer()
+    {
+        //simpledie
+        //KillBots(100);
+    }
+
+    function Tick(float dt)
+    {
+    }
+
+    function bool CheckMaxLives(PlayerReplicationInfo Scorer)
+    {
+        return false;
+    }
+
+    function RestartPlayer( Controller aPlayer )
+    {
+    }
+
+    function endstate()
+    {
+        log("dropping:endstate");
+    }
+
     function beginstate()
     {
         local Controller C;
 
+        log("dropping:beginstate");
         MaxLives=default.MaxLives;
-        RemainingBots=InitialBots;
+        //RemainingBots=InitialBots;
 
         Storm = spawn(class'StormZone');
         BRGameReplicationInfo(GameReplicationInfo).Storm = Storm;
 
-        Bus = spawn(class'BattleBus',self);
+        Bus = spawn(class'BattleBus',self,,vect(0,0,8000));
         BRGameReplicationInfo(GameReplicationInfo).Bus = Bus;
-        Bus.Launch(BRGameReplicationInfo(GameReplicationInfo).RadarRange * 0.5, Level.StallZ * 0.5, 1000.0);
+
 
         for(C=Level.ControllerList;C!=None;C=C.NextController)
         {
             if(PlayerController(C) != None)
             {
                 Bus.AddPassenger(PlayerController(C));
+                if(C.Pawn != None)
+                    C.Pawn.PlayOwnedSound(BusLaunchSounds[rand(BusLaunchSounds.Length)], SLOT_Interact, 255.0);
             }
         }
+
+        Bus.Launch(BRGameReplicationInfo(GameReplicationInfo).RadarRange * 0.5, Level.StallZ * 0.5, 1000.0);
+
+        log("dropping:end beginstate");
     }
 
 Begin:
+    log("dropping:begin label");
     Sleep(2.5);
     Bus.PlayAnim('DoorOpen');
     Sleep(1.0);
@@ -323,15 +461,12 @@ Begin:
     BroadcastStatusAnnouncement('one');
     Sleep(1.0);
     BroadcastStatusAnnouncement('Play');
+    log("dropping:begin end label");
     GotoState('MatchInProgress');
 }
 
 function float RatePlayerStart(NavigationPoint N, byte Team, Controller Player)
 {
-    if(PlayerStart(N) != None && PlayerStart(N).TeamNumber == 3)
-    {
-        Level.GetLocalPlayerController().ClientMessage("player start "$PlayerStart(N).TeamNumber);
-    }
     if(PlayerStart(N) != None && PlayerStart(N).TeamNumber == WarmupPlayerStartTeamNum)
         return 999999999;
     
@@ -418,6 +553,8 @@ function RestartPlayer( Controller aPlayer )
 	local vector ViewDir;
 	local float BestDist, Dist;
 
+    log("RestartPlayer:"$aPlayer);
+
     if( bRestartLevel && Level.NetMode!=NM_DedicatedServer && Level.NetMode!=NM_ListenServer )
         return;
 
@@ -435,13 +572,33 @@ function RestartPlayer( Controller aPlayer )
     //startSpot = FindPlayerStart(aPlayer, TeamNum);
     if(IsInState('Warmup'))
         startSpot = FindPlayerStart(aPlayer, TeamNum);
-    else
+    else if(Bus != None)
+    {
         startSpot = Bus.FindStartSpot(aPlayer);
+        //debug!
+        //startSpot = aPlayer.Pawn;
+        log("bus returned (debug!) "$startSpot$ " state="$GetStateName());
+    }
+    else
+        log("Bus is None");
 
+    log("startSpot = "$startSpot$" wtf="$startSpot == None);
     if( startSpot == None )
     {
-        log(" Player start not found!!!");
+        log(" Player start not found!!! bus="$Bus$" State="$GetStateName());
         return;
+    }
+    else
+    {
+        log(" got start "$startSpot);
+        
+    }
+
+    //debug 
+    if(aPlayer.Pawn != None)
+    {
+        //aPlayer.Pawn.Destroy();
+        aPlayer.Pawn=None;
     }
 
     if (aPlayer.PreviousPawnClass!=None && aPlayer.PawnClass != aPlayer.PreviousPawnClass)
@@ -450,14 +607,16 @@ function RestartPlayer( Controller aPlayer )
     if ( aPlayer.PawnClass != None )
         aPlayer.Pawn = Spawn(aPlayer.PawnClass,,,StartSpot.Location+vect(0,0,0),aPlayer.Rotation);
 
+
     if( aPlayer.Pawn==None )
     {
         DefaultPlayerClass = GetDefaultPlayerClass(aPlayer);
         aPlayer.Pawn = Spawn(DefaultPlayerClass,,,StartSpot.Location+vect(0,0,0),aPlayer.Rotation);
     }
+
     if ( aPlayer.Pawn == None )
     {
-        log("Couldn't spawn player of type "$aPlayer.PawnClass$" at "$StartSpot);
+        log("Couldn't spawn player of type "$aPlayer.PawnClass$" at "$StartSpot$" loc="$StartSpot.Location);
         aPlayer.GotoState('Dead');
         if ( PlayerController(aPlayer) != None )
 			PlayerController(aPlayer).ClientGotoState('Dead','Begin');
@@ -468,7 +627,7 @@ function RestartPlayer( Controller aPlayer )
 
     if( Bot(aPlayer) != None)
     {
-        Bot(aPlayer).Pawn.Velocity = vect(440,440,0) * VRand() - vect(220,220,0);
+        Bot(aPlayer).Pawn.Velocity = vect(440,440,0) * VRand();
     }
 
     //aPlayer.Pawn.Anchor = startSpot;
@@ -567,7 +726,6 @@ function bool PreventDeath(Pawn Killed, Controller Killer, class<DamageType> dam
 	for (i = 0; i < Inv.Length; i++)
 	{
 		Inv[i].HolderDied();
-		// toss the current weapon where Killed was looking
 		if (Killed.Weapon == Inv[i])
 		{
 			TossVel = Vector(Killed.GetViewRotation());
@@ -577,7 +735,6 @@ function bool PreventDeath(Pawn Killed, Controller Killer, class<DamageType> dam
 			Killed.DeleteInventory(Inv[i]);
 			Inv[i].DropFrom(Vector(Killed.GetViewRotation()) * Killed.CollisionRadius * 1.5);
 		}
-		// let 'em fly
 		else
 		{
 			TossVel = Normal(Killed.Velocity);
@@ -660,4 +817,11 @@ defaultproperties
 
     VehicleRoadRageScaling=0.0001
     WarmupPlayerStartTeamNum=3
+    BusLaunchSounds(0)=Sound'BusHorn'
+    BusLaunchSounds(1)=Sound'didntdie'
+    BusLaunchSounds(2)=Sound'die4'
+    BusLaunchSounds(3)=Sound'goodbye'
+    BusLaunchSounds(4)=Sound'notsofast'
+    BusLaunchSounds(5)=Sound'simpledie'
+    BusLaunchSounds(6)=Sound'playshit'
 }
