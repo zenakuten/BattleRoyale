@@ -39,7 +39,7 @@ struct StormInfo
 
 var array<StormInfo> StormData;
 
-function PostBeginPlay()
+simulated function PostBeginPlay()
 {
     local TerrainInfo T;
     local vector startloc;
@@ -214,10 +214,11 @@ function float GetRadarRange()
 }
 
 // set the radius of the storm
-function SetRadius(float radius)
+simulated function SetRadius(float radius)
 {
     local float scale;
     local vector scale3d;
+
     if(radius < 0)
         return;
 

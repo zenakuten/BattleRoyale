@@ -450,9 +450,10 @@ state Dropping
 
 Begin:
     log("dropping:begin label");
-    Sleep(2.5);
-    Bus.PlayAnim('DoorOpen');
-    Sleep(1.0);
+    Sleep(3.5);
+    //Sleep(2.5);
+    //Bus.PlayAnim('DoorOpen');
+    //Sleep(1.0);
     BroadcastStatusAnnouncement('three');
     Sleep(1.0);
     BroadcastStatusAnnouncement('two');

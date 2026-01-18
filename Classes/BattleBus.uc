@@ -17,6 +17,17 @@ function PostBeginPlay()
     SetCollision(false,false);
 }
 
+simulated function PostNetBeginPlay()
+{
+    super.PostNetBeginPlay();
+    SetTimer(2.5,false);
+}
+
+simulated function Timer()
+{
+    PlayAnim('DoorOpen');
+}
+
 function InitPassengers()
 {
     local BattleBusPassenger P;
