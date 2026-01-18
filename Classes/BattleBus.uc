@@ -1,5 +1,4 @@
-//class BattleBus extends Actor;
-class BattleBus extends Vehicle;
+class BattleBus extends Actor;
 
 var array<name> Seats;
 var array<BattleBusPassenger> Passengers;
@@ -184,12 +183,11 @@ function Launch(float RadarRange, float StallZ, float Speed)
     SetLocation(start);
     SetRotation(rotator(dir));
     velocity = dir * Speed;
-    /*
     for(i=0;i<Passengers.Length;i++)
     {
         Passengers[i].Velocity = velocity;
     }
-    */
+
     //log("debug: set btearoff");
     //bTearOff=true;
     // this caused no plane to show, but still shaking

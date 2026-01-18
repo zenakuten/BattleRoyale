@@ -1,16 +1,22 @@
 class BattleBusPassenger extends Pawn;
-//class BattleBusPassenger extends Actor;
 
 var BattleBus Bus;
 var Name Seat;
 
-function bool SpecialCalcView(out Actor ViewActor, out vector CameraLocation, out rotator CameraRotation)
+replication
+{
+    unreliable if(ROLE == ROLE_Authority)
+        Bus;
+}
+
+simulated function bool SpecialCalcView(out Actor ViewActor, out vector CameraLocation, out rotator CameraRotation)
 {
     local Coords C;
 
+    log("specialcalcview");
     ViewActor = self;
     C = Bus.GetBoneCoords(Seat);
-    CameraLocation = C.Origin;    
+    CameraLocation = C.Origin;
 
     return true;
 }
