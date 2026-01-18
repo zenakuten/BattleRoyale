@@ -67,77 +67,22 @@ auto State PendingMatch
 {
 	function RestartPlayer( Controller aPlayer )
 	{
-        log("pendingmatch:restartplayer");
-		if ( CountDown <= 0 )
-			Super.RestartPlayer(aPlayer);
 	}
 
     function bool AddBot(optional string botName)
     {
-        log("pendingmatch:addbot");
-        if ( Level.NetMode == NM_Standalone )
-            InitialBots++;
-        if ( botName != "" )
-			PreLoadNamedBot(botName);
-		else
-			PreLoadBot();
         return true;
     }
 
     function Timer()
     {
-        local Controller P;
-        local bool bReady;
-
         log("pendingmatch:timer numplayers="$NumPlayers$" bWaitForNetPlayers="$bWaitForNetPlayers);
+
         Global.Timer();
 
-        // first check if there are enough net players, and enough time has elapsed to give people
-        // a chance to join
-        if ( NumPlayers == 0 )
-			bWaitForNetPlayers = true;
-
-        if ( bWaitForNetPlayers && (Level.NetMode != NM_Standalone) )
-        {
-             if ( NumPlayers >= MinNetPlayers )
-                ElapsedTime++;
-            else
-                ElapsedTime = 0;
-            if ( (NumPlayers == MaxPlayers) || (ElapsedTime > NetWait) )
-            {
-                bWaitForNetPlayers = false;
-                CountDown = Default.CountDown;
-            }
-        }
-
-        if ( (Level.NetMode != NM_Standalone) && (bWaitForNetPlayers || (bTournament && (NumPlayers < MaxPlayers))) )
-        {
-       		PlayStartupMessage();
-            return;
-		}
-
-		// check if players are ready
-        bReady = true;
-        StartupStage = 1;
-        if ( !bStartedCountDown && (bTournament || bPlayersMustBeReady || (Level.NetMode == NM_Standalone)) )
-        {
-            for (P=Level.ControllerList; P!=None; P=P.NextController )
-                if ( P.IsA('PlayerController') && (P.PlayerReplicationInfo != None)
-                    && P.bIsPlayer && P.PlayerReplicationInfo.bWaitingPlayer
-                    && !P.PlayerReplicationInfo.bReadyToPlay )
-                    bReady = false;
-        }
-        if ( bReady && !bReviewingJumpspots )
-        {
-			bStartedCountDown = true;
-            CountDown--;
-            if ( CountDown <= 0 )
-                StartMatch();
-            else
-                StartupStage = 5 - CountDown;
-        }
-        
-		PlayStartupMessage();
+        // start warmup if anybody joins
+        if(NumPlayers > 0)
+            StartMatch();
     }
 
     function beginstate()
@@ -145,8 +90,7 @@ auto State PendingMatch
         log("pendingmatch:begin");
 		bWaitingToStartMatch = true;
         StartupStage = 0;
-        if ( IsA('xLastManStandingGame') )
-			NetWait = Max(NetWait,10);
+        NetWait = Max(NetWait,10);
     }
 
 Begin:
@@ -165,15 +109,6 @@ state MatchInProgress
 
         Global.Timer();
 
-        /*
-        for(i=0;i<4;i++)
-        {
-            if ( NeedPlayers() && AddBot() && (RemainingBots > 0) )
-            {
-                RemainingBots--;
-            }
-        }
-        */
         if (RemainingBots > 0)
         {
             Level.GetLocalPlayerController().ClientMessage("RemainingBots = "$RemainingBots);
@@ -271,13 +206,12 @@ state Warmup
         ReadyCount=0;
         for (P=Level.ControllerList; P!=None; P=P.NextController )
         {
-            if ( P.IsA('PlayerController') && (P.PlayerReplicationInfo != None)
-                && P.bIsPlayer)
-                {
-                    PlayerCount++;
-                    if(!P.PlayerReplicationInfo.bWaitingPlayer && P.PlayerReplicationInfo.bReadyToPlay)
-                        ReadyCount++;
-                }
+            if ( P.IsA('PlayerController') && (P.PlayerReplicationInfo != None) && P.bIsPlayer)
+            {
+                PlayerCount++;
+                if(!P.PlayerReplicationInfo.bWaitingPlayer && P.PlayerReplicationInfo.bReadyToPlay)
+                    ReadyCount++;
+            }
         }
         log("warmup:timer p="$PlayerCount$" r="$ReadyCount);
         //bReady=PlayerCount != 0 && ReadyCount != 0 && PlayerCount >= MinPlayers && float(ReadyCount)/float(PlayerCount) > 0.51;
@@ -300,19 +234,6 @@ state Warmup
         }
     }
 
-    /*
-    function bool AddBot(optional string botName)
-    {
-        log("warmup:addbot");
-        if ( Level.NetMode == NM_Standalone )
-            InitialBots++;
-        if ( botName != "" )
-			PreLoadNamedBot(botName);
-		else
-			PreLoadBot();
-        return true;
-    }
-    */
     function CheckScore(PlayerReplicationInfo Scorer)
     {
     }
@@ -330,7 +251,6 @@ state Warmup
     {
         local Controller C, Next;
         local int i;
-        log("warmup:endstate");
 
         BRGameReplicationInfo(Level.GRI).bWarmup=false;
         C = Level.ControllerList;
@@ -359,13 +279,16 @@ state Warmup
     function BeginState()
     {
         local Controller C;
-        log("warmup:beginstate");
         BRGameReplicationInfo(Level.GRI).bWarmup=true;
         MaxLives=0;
         for(C=Level.ControllerList;C!=None;C=C.NextController)
         {
-            if(C.PlayerReplicationInfo != None && !C.PlayerReplicationInfo.bOnlySpectator)
-                RestartPlayer(C);
+            if(C.PlayerReplicationInfo != None)
+            { 
+                if(!C.PlayerReplicationInfo.bOnlySpectator)
+                    RestartPlayer(C);
+                C.PlayerReplicationInfo.bReadyToPlay=false;
+            }
         }
 
         WarmupTimer = 90;
@@ -558,10 +481,15 @@ function RestartPlayer( Controller aPlayer )
     if( bRestartLevel && Level.NetMode!=NM_DedicatedServer && Level.NetMode!=NM_ListenServer )
         return;
 
-    if(PlayerController(aPlayer) != None && aPlayer.PlayerReplicationInfo != None && aPlayer.PlayerReplicationInfo.bOnlySpectator)
+    if(PlayerController(aPlayer) != None && aPlayer.PlayerReplicationInfo != None)
     {
-        PlayerController(aPlayer).ServerViewNextPlayer();
-        return;
+        log("RestartPlayer:"$aPlayer$" spec="$aPlayer.PlayerReplicationInfo.bOnlySpectator);
+        if(aPlayer.PlayerReplicationInfo.bOnlySpectator)
+        {
+            log("RestartPlayer: not restarting, viewing next player for spectator");
+            PlayerController(aPlayer).ServerViewNextPlayer();
+            return;
+        }
     }
 
     if ( (aPlayer.PlayerReplicationInfo == None) || (aPlayer.PlayerReplicationInfo.Team == None) )
@@ -673,6 +601,8 @@ function RestartPlayer( Controller aPlayer )
 // assign menu, force new joins to spec
 event PostLogin( playercontroller NewPlayer )
 {
+    local class<Scoreboard> ScoreboardClass;
+
     if (UnrealPlayer(NewPlayer) != None)
     {
         LoginMenuClass="BattleRoyale.BattleRoyaleLoginMenu";
@@ -684,8 +614,13 @@ event PostLogin( playercontroller NewPlayer )
     if(IsInState('MatchInProgress'))
     {
         log("Forcing new player to spectator while match in progress");
+        //todo this will probably just be hardcoded
+        ScoreboardClass = class<Scoreboard>(DynamicLoadObject(ScoreBoardType, class'Class'));
+        NewPlayer.ClientSetHUD(class'HUDBattleRoyale', ScoreboardClass);
+
         NewPlayer.PlayerReplicationInfo.NumLives=0;
-        NewPlayer.BecomeSpectator();
+        NewPlayer.PlayerReplicationInfo.bOnlySpectator=true;
+        NewPlayer.ServerSpectate();
         return;
     }
 
@@ -813,7 +748,7 @@ defaultproperties
     LoginMenuClass="BattleRoyale.BattleRoyaleLoginMenu"
     GameUMenuType="BattleRoyale.BattleRoyaleLoginMenu"
     bAlwaysShowLoginMenu=True
-    bQuickStart=true
+    bQuickStart=false
 
     VehicleRoadRageScaling=0.0001
     WarmupPlayerStartTeamNum=3

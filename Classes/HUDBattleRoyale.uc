@@ -32,7 +32,7 @@ simulated function DrawHudPassC (Canvas C)
 simulated function DrawSpectatingHud (Canvas C)
 {
     local float RadarWidth, CenterRadarPosX, CenterRadarPosY;
-	Super.DrawSpectatingHud(C);
+	Super(HudCDeathMatch).DrawSpectatingHud(C);
     if (Level.bShowRadarMap && !bMapDisabled)
     {
         RadarWidth = 0.5 * RadarScale * HUDScale * C.ClipX;

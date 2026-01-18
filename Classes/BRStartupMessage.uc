@@ -2,7 +2,7 @@ class BRStartupMessage extends StartupMessage;
 
 defaultproperties
 {
-     Stage(0)="Waiting for other players."
+     Stage(0)="You are NOT READY. Hit F5 and ready up to play!"
      Stage(1)="Waiting for ready signals. You are READY."
      Stage(2)="The match is about to begin...3"
      Stage(3)="The match is about to begin...2"
