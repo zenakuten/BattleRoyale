@@ -161,7 +161,6 @@ state MatchInProgress
 {
     function Timer()
     {
-        local int i;
         local Controller C;
 
         Global.Timer();
@@ -683,6 +682,7 @@ event PostLogin( playercontroller NewPlayer )
     // this needs tested
     if(IsInState('MatchInProgress'))
     {
+        log("Forcing new player to spectator while match in progress");
         NewPlayer.PlayerReplicationInfo.NumLives=0;
         NewPlayer.BecomeSpectator();
         return;
@@ -795,7 +795,6 @@ defaultproperties
 
     StormDurationSeconds=30.0
     StormShrinkLength=2000.0
-
 
     MutatorClass="BattleRoyale.MutBattleRoyale"
     HUDType="BattleRoyale.HUDBattleRoyale"

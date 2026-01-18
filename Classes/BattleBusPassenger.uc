@@ -13,24 +13,11 @@ simulated function bool SpecialCalcView(out Actor ViewActor, out vector CameraLo
 {
     local Coords C;
 
-    log("specialcalcview");
     ViewActor = self;
     C = Bus.GetBoneCoords(Seat);
     CameraLocation = C.Origin;
 
     return true;
-}
-
-function PostBeginPlay()
-{
-    super.PostBeginPlay();
-    log("BattleBusPassenger:postbeginplay, location="$Location);
-}
-
-function Destroyed()
-{
-    log("BattleBusPassenger:destroyed, location="$Location);
-    super.Destroyed();
 }
 
 simulated function vector CameraShake()
@@ -48,8 +35,6 @@ defaultproperties
     bOnlyOwnerSee=false
     bOwnerNoSee=False
     bCanTeleport=True
-    //bAlwaysRelevant=true
-    //wtf
     bHardAttach=False
     bCollideActors=False
     bCollideWorld=False

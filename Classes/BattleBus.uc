@@ -7,7 +7,6 @@ var float spawntime;
 function PostBeginPlay()
 {
     super.PostBeginPlay();
-    log("battlebus:postbeginplay");
 
     spawntime = level.timeseconds;
 
@@ -18,32 +17,14 @@ function PostBeginPlay()
     SetCollision(false,false);
 }
 
-/*
-simulated function PostNetBeginPlay()
-{
-    local BattleBusPassenger P;
-
-    super.PostNetBeginPlay();
-
-    foreach ChildActors(class'BattleBusPassenger', P)
-    {
-        P.bHardAttach=true;
-        P.SetBase(self);
-    }
-
-}
-*/
-
 function InitPassengers()
 {
     local BattleBusPassenger P;
-    local Coords C;
     local int i;
 
     Passengers.Length = Seats.Length;
     for(i = 0;i<Passengers.Length;i++)
     {
-        //P = spawn(class'BattleBusPassenger',self,,Location,rotator(vect(0,0,0)));
         P = spawn(class'BattleBusPassenger',self);
         P.Bus = self;
         P.Seat = Seats[i];
@@ -58,8 +39,6 @@ function InitPassengers()
         else
             P.SetRelativeRotation(rot(0,-16384,0));
 
-        //C = GetBoneCoords(P.Seat);
-        //P.SetRelativeLocation(C.Origin);
         AttachToBone(P, P.Seat);
         Passengers[i] = P;
     }
@@ -68,34 +47,6 @@ function InitPassengers()
 function AddPassenger(PlayerController PC)
 {
     local BattleBusPassenger P;
-
-    /*
-    P = spawn(class'BattleBusPassenger',self);
-    P.Bus = self;
-    P.Seat = Seats[0];
-    P.bCollideWorld=false;
-    P.RemoteRole=ROLE_SimulatedProxy;
-    P.SetPhysics(PHYS_None);
-    P.SetCollision(false,false);
-    P.SetLocation(Location);
-    P.bHardAttach=true;
-    P.SetBase(self);
-    P.SetRelativeRotation(rot(0,16384,0));
-    AttachToBone(P, Seats[0]);
-
-
-    //PC.Pawn = None;
-    PC.Pawn = P;
-    //PC.Possess(P);
-    //PC.bBehindView = false;
-    //PC.ClientSetBehindView(false);
-    PC.SetViewTarget(P);
-    PC.ClientSetViewTarget(P);
-    PC.bBehindView = true;
-    PC.ClientSetBehindView(true);
-    PC.CameraDist=0.0;
-    PC.GotoState('PlayerWaiting');
-    */
 
     //P = Passengers[Rand(Passengers.Length)];
     // humans sit up front so they can see
@@ -108,15 +59,6 @@ function AddPassenger(PlayerController PC)
     PC.bBehindView = false;
     PC.ClientSetBehindView(false);
 
-    /*
-    //debug
-    PC.SetViewTarget(self);
-    PC.ClientSetViewTarget(self);
-    PC.bBehindView = false;
-    //PC.CameraDist=0.0;
-    PC.ClientSetBehindView(false);
-    */
-
     PC.ClientMessage(PC.OwnCamera, 'Event');
     PC.GotoState('PlayerWaiting');
 }
@@ -124,31 +66,17 @@ function AddPassenger(PlayerController PC)
 function Actor FindStartSpot(Controller C)
 {
     local int i;
-    local Actor start;
-
-    log("Bus:FindStartSpot C="$C$"Passengers = "$Passengers.Length);
-    if(Passengers.Length > 0)
-        log("Passengers[0] = "$Passengers[0]);
 
     if(C == None)
-    {
-        log("Bus: trying to find start for None controller l="$Passengers.Length);
-        //return None;
         return Passengers[Rand(Passengers.Length)];
-    }
 
     for(i = 0;i<Passengers.Length;i++)
     {
         if(C.Pawn == Passengers[i])
-        {
-            log("Bus:FindPlayerStart: returning start: "$Passengers[i]);
             return Passengers[i];
-        }
     }
 
-    start = Passengers[Rand(Passengers.Length)];
-    log("Bus:FindPlayerStart: returning start: "$start);
-    return start;
+    return Passengers[Rand(Passengers.Length)];
 }
 
 function Launch(float RadarRange, float StallZ, float Speed)
@@ -188,17 +116,7 @@ function Launch(float RadarRange, float StallZ, float Speed)
         Passengers[i].Velocity = velocity;
     }
 
-    //log("debug: set btearoff");
-    //bTearOff=true;
-    // this caused no plane to show, but still shaking
-
-    log("Bus: launched from: "$start$" towards"$dir);
-}
-
-function Destroyed()
-{
-    log("BattleBus:destroyed");
-    super.Destroyed();
+    //log("Bus: launched from: "$start$" towards"$dir);
 }
 
 defaultproperties
@@ -209,7 +127,6 @@ defaultproperties
     bAlwaysRelevant=true
     bStasis=False
     bUpdateSimulatedPosition=True
-    //bUpdateSimulatedPosition=False
     bForceSkelUpdate=True
     bReplicateMovement=true
     bNetInitialRotation=true
@@ -219,8 +136,6 @@ defaultproperties
 
     bCanBeDamaged=False
     bShouldBaseAtStartup=False
-
-    //bSpecialCalcView=true
 
     bTravel=False
     bOwnerNoSee=False
