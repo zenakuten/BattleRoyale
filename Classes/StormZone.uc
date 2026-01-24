@@ -121,31 +121,22 @@ simulated function Tick(float DeltaTime)
         bShrinking = StormLife > StormData[StormNumber].StormDuration;
     }
 
-    if(Level.NetMode != NM_DedicatedServer && StormLife + 3.8 > 5)
-        log("zonetick: sl="$StormLife$" sd="$StormData[StormNumber].StormDuration$" sn="$StormNumber$" "$bShrinking);
-
     if(Level.NetMode != NM_DedicatedServer && StormLife + 3.8 > StormData[StormNumber].StormDuration && !bClientSoundedStorm && !bShrinking)
     {
-        log("sounding surge");
         PC = Level.GetLocalPlayerController();
         if(PC != None && PC.Pawn != None)
         {
-            log("sounding surge play owned sound");
             PC.Pawn.PlayOwnedSound(StormSurgeSound, SLOT_None,1.0);
-
         }
 
         bClientSoundedStorm=true;
         OldStormNumber=StormNumber;
-
-        //BroadcastSurgeSound();
     }
 
     if(Level.NetMode != NM_DedicatedServer)
     {
-         if(StormNumber != OldStormNumber)
+        if(StormNumber != OldStormNumber)
         {
-            log("sounding surge shrink stopped and enabled");
             bClientSoundedStorm=false;
             OldStormNumber=StormNumber;
         }

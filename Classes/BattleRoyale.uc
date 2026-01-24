@@ -58,8 +58,6 @@ auto State PendingMatch
 
     function Timer()
     {
-        log("pendingmatch:timer numplayers="$NumPlayers$" bWaitForNetPlayers="$bWaitForNetPlayers);
-
         Global.Timer();
 
         // start warmup if anybody joins
@@ -69,7 +67,6 @@ auto State PendingMatch
 
     function beginstate()
     {
-        log("pendingmatch:begin");
 		bWaitingToStartMatch = true;
         StartupStage = 0;
         NetWait = Max(NetWait,10);
@@ -93,12 +90,12 @@ state MatchInProgress
 
         if (RemainingBots > 0)
         {
-            Level.GetLocalPlayerController().ClientMessage("RemainingBots = "$RemainingBots);
+            //Level.GetLocalPlayerController().ClientMessage("RemainingBots = "$RemainingBots);
             for(C=Level.ControllerList;C!=None;C=C.NextController)
             {
                 if(C.IsA('Bot') && C.Pawn == None)
                 {
-                    Level.GetLocalPlayerController().ClientMessage("Restart bot");
+                    //Level.GetLocalPlayerController().ClientMessage("Restart bot");
                     RestartPlayer(C);
                 }
             }
@@ -126,17 +123,15 @@ state MatchInProgress
         BRGameReplicationInfo(GameReplicationInfo).GameTimer = ElapsedTime;
     }
 
-    function endstate()
+    function EndState()
     {
-        log("matchinprogress:endstate");
     }
 
-    function beginstate()
+    function BeginState()
     {
 		local PlayerReplicationInfo PRI;
         local Controller C;
 
-        log("matchinprogress:beginstate");
 		foreach DynamicActors(class'PlayerReplicationInfo',PRI)
 			PRI.StartTime = 0;
 
@@ -180,9 +175,6 @@ state Warmup
         local bool bReady;
         local int PlayerCount, ReadyCount;
 
-        //make clock tick down
-        //RemainingTime=WarmupTimer;
-
         if ( NeedPlayers() && AddBot() && (RemainingBots > 0) )
         {
 			RemainingBots--;
@@ -205,7 +197,6 @@ state Warmup
             }
         }
 
-        log("warmup:timer p="$PlayerCount$" r="$ReadyCount);
         //bReady=PlayerCount != 0 && ReadyCount != 0 && PlayerCount >= MinPlayers && float(ReadyCount)/float(PlayerCount) > 0.51;
         bReady=PlayerCount != 0 && ReadyCount != 0 && float(ReadyCount)/float(PlayerCount) > 0.51;
 
@@ -329,8 +320,6 @@ state Dropping
 
     function Timer()
     {
-        //simpledie
-        //KillBots(100);
     }
 
     function Tick(float dt)
@@ -346,16 +335,14 @@ state Dropping
     {
     }
 
-    function endstate()
+    function EndState()
     {
-        log("dropping:endstate");
     }
 
-    function beginstate()
+    function BeginState()
     {
         local Controller C;
 
-        log("dropping:beginstate");
         MaxLives=default.MaxLives;
         //RemainingBots=InitialBots;
 
@@ -374,12 +361,9 @@ state Dropping
                 Bus.AddPassenger(PlayerController(C));
             }
         }
-
-        log("dropping:end beginstate");
     }
 
 Begin:
-    log("dropping:begin label");
     Sleep(3.5);
     //Sleep(2.5);
     //Bus.PlayAnim('DoorOpen');
@@ -391,7 +375,6 @@ Begin:
     BroadcastStatusAnnouncement('one');
     Sleep(1.0);
     BroadcastStatusAnnouncement('Play');
-    log("dropping:begin end label");
     GotoState('MatchInProgress');
 }
 
@@ -483,17 +466,13 @@ function RestartPlayer( Controller aPlayer )
 	local vector ViewDir;
 	local float BestDist, Dist;
 
-    log("RestartPlayer:"$aPlayer);
-
     if( bRestartLevel && Level.NetMode!=NM_DedicatedServer && Level.NetMode!=NM_ListenServer )
         return;
 
     if(PlayerController(aPlayer) != None && aPlayer.PlayerReplicationInfo != None)
     {
-        log("RestartPlayer:"$aPlayer$" spec="$aPlayer.PlayerReplicationInfo.bOnlySpectator);
         if(aPlayer.PlayerReplicationInfo.bOnlySpectator)
         {
-            log("RestartPlayer: not restarting, viewing next player for spectator");
             PlayerController(aPlayer).ServerViewNextPlayer();
             return;
         }
@@ -512,24 +491,19 @@ function RestartPlayer( Controller aPlayer )
         startSpot = Bus.FindStartSpot(aPlayer);
         //debug!
         //startSpot = aPlayer.Pawn;
-        log("bus returned (debug!) "$startSpot$ " state="$GetStateName());
     }
-    else
-        log("Bus is None");
 
-    log("startSpot = "$startSpot$" wtf="$startSpot == None);
+    //log("startSpot = "$startSpot$" wtf="$startSpot == None);
     if( startSpot == None )
     {
-        log(" Player start not found!!! bus="$Bus$" State="$GetStateName());
         return;
     }
     else
     {
-        log(" got start "$startSpot);
-        
+        //log(" got start "$startSpot);
     }
 
-    //debug 
+    // this will be the bus passenger pawn initially
     if(aPlayer.Pawn != None)
     {
         //aPlayer.Pawn.Destroy();
@@ -620,7 +594,7 @@ event PostLogin( playercontroller NewPlayer )
     // this needs tested
     if(IsInState('MatchInProgress'))
     {
-        log("Forcing new player to spectator while match in progress");
+        //log("Forcing new player to spectator while match in progress");
         //todo this will probably just be hardcoded
         ScoreboardClass = class<Scoreboard>(DynamicLoadObject(ScoreBoardType, class'Class'));
         NewPlayer.ClientSetHUD(class'HUDBattleRoyale', ScoreboardClass);
