@@ -367,6 +367,14 @@ state Dropping
 
         Bus.Launch(BRGameReplicationInfo(GameReplicationInfo).RadarRange * 0.5, Level.StallZ * 0.5, 1000.0);
 
+        for(C=Level.ControllerList;C!=None;C=C.NextController)
+        {
+            if(PlayerController(C) != None)
+            {
+                Bus.AddPassenger(PlayerController(C));
+            }
+        }
+
         log("dropping:end beginstate");
     }
 
