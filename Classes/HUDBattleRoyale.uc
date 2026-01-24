@@ -10,6 +10,8 @@ var() SpriteWidget StormTimerIcon;
 var() SpriteWidget StormTimerBackground;
 var() SpriteWidget StormTimerBackgroundDisc;
 
+var bool bShowDebug;
+
 simulated function DrawHudPassA (Canvas C)
 {
     super(HudCDeathMatch).DrawHudPassA(C);
@@ -29,6 +31,7 @@ simulated function DrawHudPassC (Canvas C)
         DrawRadarMap(C, CenterRadarPosX, CenterRadarPosY, RadarWidth, false);
     }
 }
+
 simulated function DrawSpectatingHud (Canvas C)
 {
     local float RadarWidth, CenterRadarPosX, CenterRadarPosY;
@@ -46,6 +49,69 @@ simulated function DrawMyScore ( Canvas C )
 {
 }
 */
+
+simulated function PostRender(Canvas C)
+{
+    super.PostRender(C);
+
+    if(bShowDebug)
+        DrawDebug(C);
+}
+
+simulated function DrawDebug(Canvas C)
+{
+    local float XPos, YPos;
+    local plane OldModulate;
+    local color OldColor;
+    local BRGameReplicationInfo BRI;
+    local float XL, YL;
+
+    OldModulate = C.ColorModulate;
+    OldColor = C.DrawColor;
+
+    C.ColorModulate.X = 1;
+    C.ColorModulate.Y = 1;
+    C.ColorModulate.Z = 1;
+    C.ColorModulate.W = HudOpacity/255;
+
+    ResScaleX = C.SizeX / 640.0;
+    ResScaleY = C.SizeY / 480.0;    
+    C.Font = class'HUD'.static.GetConsoleFont(C);
+    C.Style = ERenderStyle.STY_Alpha;
+    C.DrawColor = ConsoleColor;
+    PlayerOwner.ViewTarget.DisplayDebug(C, XPos, YPos);
+
+    BRI = BRGameReplicationInfo(Level.GRI);
+    if(BRI == None)
+        return;
+
+    C.StrLen("TEST", XL, YL);
+    YPos += YL;
+    C.SetPos(4, YPos);
+    C.SetDrawColor(255,255,255);
+    C.DrawText("Storm:");
+    YPos += YL;
+    C.SetPos(4, YPos);
+    C.DrawText("Location: "$BRI.Storm.Location$" Rotation "$BRI.Storm.Rotation, false);
+	YPos += YL;
+	C.SetPos(4,YPos);
+	C.DrawText("Velocity: "$BRI.Storm.Velocity$" Speed "$VSize(BRI.Storm.Velocity)$" Speed2D "$VSize(BRI.Storm.Velocity-BRI.Storm.Velocity.Z*vect(0,0,1)), false);
+	YPos += YL;
+	C.SetPos(4,YPos);
+	C.DrawText("Radius: "$BRI.Storm.ZoneRadius$" Scale"$BRI.Storm.DrawScale3D$" Damage "$BRI.Storm.DamageValue());
+    C.DrawActor(BRI.Storm,true);
+    
+    YPos += YL;
+    C.SetPos(4, YPos);
+    C.SetDrawColor(255,0,255);
+    C.DrawText("Bus:");
+    YPos += YL;
+    C.SetPos(4, YPos);
+    C.DrawText("Location: "$BRI.Bus.Location$" Rotation "$BRI.Bus.Rotation, false);
+	YPos += YL;
+	C.SetPos(4,YPos);
+	C.DrawText("Velocity: "$BRI.Bus.Velocity$" Speed "$VSize(BRI.Bus.Velocity)$" Speed2D "$VSize(BRI.Bus.Velocity-BRI.Bus.Velocity.Z*vect(0,0,1)), false);
+}
 
 simulated function UpdateHud()
 {
@@ -140,7 +206,7 @@ simulated function DrawStormTimer(Canvas C)
         if(BRI.Storm != None)
         {
             dur = BRI.Storm.GetInfo().StormDuration;
-            Seconds = Max(0,dur - (Level.TimeSeconds - BRI.Storm.StartTime));
+            Seconds = Max(0,dur - (BRI.Storm.TimeSeconds - BRI.Storm.StartTime));
         }
     }
 
@@ -196,11 +262,70 @@ simulated function DrawStormTimer(Canvas C)
 	DrawNumericWidget( C, StormTimerSeconds, DigitsBig);
 }
 
+simulated function DrawTimer(Canvas C)
+{
+	local BRGameReplicationInfo BRI;
+	local int Minutes, Hours, Seconds;
+
+	BRI = BRGameReplicationInfo(PlayerOwner.GameReplicationInfo);
+
+	if ( BRI.bWarmup )
+		Seconds = BRI.WarmupTimer;
+	else
+		//Seconds = BRI.ElapsedTime;
+		Seconds = BRI.GameTimer;
+
+	TimerBackground.Tints[TeamIndex] = HudColorBlack;
+    TimerBackground.Tints[TeamIndex].A = 150;
+
+	DrawSpriteWidget( C, TimerBackground);
+	DrawSpriteWidget( C, TimerBackgroundDisc);
+	DrawSpriteWidget( C, TimerIcon);
+
+	TimerMinutes.OffsetX = default.TimerMinutes.OffsetX - 80;
+	TimerSeconds.OffsetX = default.TimerSeconds.OffsetX - 80;
+	TimerDigitSpacer[0].OffsetX = Default.TimerDigitSpacer[0].OffsetX;
+	TimerDigitSpacer[1].OffsetX = Default.TimerDigitSpacer[1].OffsetX;
+
+	if( Seconds > 3600 )
+    {
+        Hours = Seconds / 3600;
+        Seconds -= Hours * 3600;
+
+		DrawNumericWidget( C, TimerHours, DigitsBig);
+        TimerHours.Value = Hours;
+
+		if(Hours>9)
+		{
+			TimerMinutes.OffsetX = default.TimerMinutes.OffsetX;
+			TimerSeconds.OffsetX = default.TimerSeconds.OffsetX;
+		}
+		else
+		{
+			TimerMinutes.OffsetX = default.TimerMinutes.OffsetX -40;
+			TimerSeconds.OffsetX = default.TimerSeconds.OffsetX -40;
+			TimerDigitSpacer[0].OffsetX = Default.TimerDigitSpacer[0].OffsetX - 32;
+			TimerDigitSpacer[1].OffsetX = Default.TimerDigitSpacer[1].OffsetX - 32;
+		}
+		DrawSpriteWidget( C, TimerDigitSpacer[0]);
+	}
+	DrawSpriteWidget( C, TimerDigitSpacer[1]);
+
+	Minutes = Seconds / 60;
+    Seconds -= Minutes * 60;
+
+    TimerMinutes.Value = Min(Minutes, 60);
+	TimerSeconds.Value = Min(Seconds, 60);
+
+	DrawNumericWidget( C, TimerMinutes, DigitsBig);
+	DrawNumericWidget( C, TimerSeconds, DigitsBig);
+}
 
 defaultproperties
 {
     BusIcon=FinalBlend'BattleRoyaleTex.Bomber.DropshipIconFB'
     bDrawTimer=true
+    bShowDebug=false
 
     StormTimerHours=(RenderStyle=STY_Alpha,TextureScale=0.320000,DrawPivot=DP_MiddleLeft,OffsetX=90,OffsetY=45,Tints[0]=(B=255,G=255,R=255,A=255),Tints[1]=(B=255,G=255,R=255,A=255))
     StormTimerMinutes=(RenderStyle=STY_Alpha,MinDigitCount=2,TextureScale=0.320000,DrawPivot=DP_MiddleLeft,OffsetX=170,OffsetY=45,Tints[0]=(B=255,G=255,R=255,A=255),Tints[1]=(B=255,G=255,R=255,A=255),bPadWithZeroes=1)

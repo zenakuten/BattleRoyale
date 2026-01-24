@@ -9,24 +9,25 @@ var() float InitialScaleMultiplier;
 var float ZoneRadius, TargetRadius;
 var float RadarRange;
 var vector MapCenter;
-var FinalBlend ZoneTexture;
 var TerrainInfo PrimaryTerrain;
 var float StartTime, ShrinkStartTime;
 var float ShrinkStep;
-var float ZTop;
 var bool bShrinking;
 var vector TargetLocation;
 var float MinimumRadius;
 var float TargetExtent;
 var Sound StormSurgeSound;
-var bool bSoundedSurge;
-
+var int TimeSeconds;
 var int StormNumber;
+
+var bool bClientSoundedStorm;
+var int OldStormNumber;
+
 
 replication
 {
     reliable if(Role == ROLE_Authority)
-        ZoneRadius, TargetRadius, bShrinking, TargetLocation;
+        ZoneRadius, TargetRadius, bShrinking, TargetLocation, StartTime, ShrinkStartTime, TimeSeconds, ShrinkStep, StormNumber;
 }
 
 struct StormInfo
@@ -39,7 +40,7 @@ struct StormInfo
 
 var array<StormInfo> StormData;
 
-simulated function PostBeginPlay()
+function PostBeginPlay()
 {
     local TerrainInfo T;
     local vector startloc;
@@ -47,7 +48,6 @@ simulated function PostBeginPlay()
     super.PostBeginPlay();
 
     SetTimer(1.0, true);
-    Skins[0] = ZoneTexture;
 
     foreach AllActors(class'TerrainInfo', T)
     {
@@ -57,26 +57,20 @@ simulated function PostBeginPlay()
     }
 
     StormNumber=0;
-    ZoneRadius = GetRadarRange() * InitialScaleMultiplier;
+    ZoneRadius = FMax(0,GetRadarRange() * InitialScaleMultiplier);
     TargetRadius = ZoneRadius * StormData[StormNumber].TargetRadiusScale;
     SetRadius(ZoneRadius);
 
     startloc = MapCenter;
-    //startloc.Z = ZTop;
     if(PrimaryTerrain != None)
         startloc.Z = PrimaryTerrain.Location.Z;
 
     SetLocation(startloc);
-
-//debug
-    //TargetLocation.X = frand()*ZoneRadius - ZoneRadius*0.5;
-    //TargetLocation.Y = frand()*ZoneRadius - ZoneRadius*0.5;
-
-    //TargetLocation.Z = ZTop;
     TargetLocation.Z = startloc.Z;
-    
     InformBots();
+
     StartTime = Level.TimeSeconds;
+    TimeSeconds = Level.TimeSeconds;
 }
 
 simulated event Touch(Actor other)
@@ -89,15 +83,16 @@ simulated event UnTouch(Actor other)
     //Level.GetLocalPlayerController().ClientMessage("Storm un touched "$other);
 }
 
-simulated function BroadcastSurgeSound()
+function BroadcastSurgeSound()
 {
     local Controller C;
-    if(Role == ROLE_Authority)
+
+    for(C=Level.ControllerList;C!=None;C=C.NextController)
     {
-        for(C=Level.ControllerList;C!=None;C=C.NextController)
+        if(PlayerController(C) != None)
         {
-            if(C.Pawn != None && PlayerController(C) != None)
-                C.Pawn.PlayOwnedSound(StormSurgeSound, SLOT_None,255.0);
+            log("Calling PlayOwnedSound on C="$C$" N="$C.PlayerReplicationInfo.PlayerName);
+            C.Pawn.PlayOwnedSound(StormSurgeSound, SLOT_None,1.0);
         }
     }
 }
@@ -107,18 +102,55 @@ simulated function Tick(float DeltaTime)
     local bool bWasShrinking;
     local vector newloc;
     local float StormLife;
+    local PlayerController PC;
     
     super.Tick(DeltaTime);
-    
-    StormLife = Level.TimeSeconds - StartTime;
 
-    bWasShrinking = bShrinking;
-    bShrinking = StormLife > StormData[StormNumber].StormDuration;
-
-    if(StormLife + 3.8 > StormData[StormNumber].StormDuration && !bSoundedSurge && !bShrinking)
+    if(Role < ROLE_Authority)
     {
-        BroadcastSurgeSound();
-        bSoundedSurge=true;
+        SetRadius(ZoneRadius);
+        //return;
+    }
+    
+    //StormLife = Level.TimeSeconds - StartTime;
+    StormLife = TimeSeconds - StartTime;
+
+    if(Role == ROLE_Authority)
+    {
+        bWasShrinking = bShrinking;
+        bShrinking = StormLife > StormData[StormNumber].StormDuration;
+    }
+
+    if(Level.NetMode != NM_DedicatedServer && StormLife + 3.8 > 5)
+        log("zonetick: sl="$StormLife$" sd="$StormData[StormNumber].StormDuration$" sn="$StormNumber$" "$bShrinking);
+
+    if(Level.NetMode != NM_DedicatedServer && StormLife + 3.8 > StormData[StormNumber].StormDuration && !bClientSoundedStorm && !bShrinking)
+    {
+        log("sounding surge");
+        PC = Level.GetLocalPlayerController();
+        if(PC != None && PC.Pawn != None)
+        {
+            log("sounding surge play owned sound");
+            PC.Pawn.PlayOwnedSound(StormSurgeSound, SLOT_None,1.0);
+
+        }
+
+        bClientSoundedStorm=true;
+        OldStormNumber=StormNumber;
+
+        //BroadcastSurgeSound();
+    }
+
+    if(Level.NetMode != NM_DedicatedServer)
+    {
+         if(StormNumber != OldStormNumber)
+        {
+            log("sounding surge shrink stopped and enabled");
+            bClientSoundedStorm=false;
+            OldStormNumber=StormNumber;
+        }
+
+        return;
     }
 
     if(bShrinking)
@@ -128,6 +160,7 @@ simulated function Tick(float DeltaTime)
             // shrink started
             //Level.GetLocalPlayerController().ClientMessage("storm shrink started");
             ShrinkStartTime = Level.TimeSeconds;
+
             // set our velocity so we reach target when shrink finishes
             Velocity = Normal(TargetLocation - Location)*VSize(TargetLocation - Location)/StormData[StormNumber].ShrinkDuration;
             Velocity.Z = 0;
@@ -149,13 +182,13 @@ simulated function Tick(float DeltaTime)
         if(ZoneRadius<=TargetRadius)
         {
             // finished shrinking, stop shrinking and advance storm
-            bSoundedSurge=false;
+            //bSoundedSurge=false;
             StormNumber=min(StormNumber+1, StormData.Length-1);
+            log("New storm "$StormNumber);
             StartTime = Level.TimeSeconds;
             newloc = GetAverageLocation();
             TargetLocation.X = newloc.X;
             TargetLocation.Y = newloc.Y;
-            //TargetLocation.Z = ZTop;
             TargetLocation.Z = Location.Z;
             TargetRadius=ZoneRadius * StormData[StormNumber].TargetRadiusScale;
             Velocity = vect(0,0,0);
@@ -168,6 +201,7 @@ simulated function Tick(float DeltaTime)
 function Timer()
 {
     HurtPlayers();
+    TimeSeconds=Level.TimeSeconds;
 }
 
 // zone damage 
@@ -193,10 +227,15 @@ function HurtPlayers()
                 //if(C == Level.GetLocalPlayerController())
                 //    Level.GetLocalPlayerController().ClientMessage("Taking zone damage");
 
-                C.Pawn.TakeDamage(StormData[StormNumber].OutOfBoundsDPS, None, vect(0,0,0), vect(0,0,0), class'StormPain');
+                C.Pawn.TakeDamage(DamageValue(), None, vect(0,0,0), vect(0,0,0), class'StormPain');
             }
         }
     }
+}
+
+function float DamageValue()
+{
+    return StormData[StormNumber].OutOfBoundsDPS;
 }
 
 // figure out the map size
@@ -222,12 +261,9 @@ simulated function SetRadius(float radius)
     if(radius < 0)
         return;
 
-    ZoneRadius = radius;
-    //scale = ZoneRadius / 105; // magic value found experimentally, depends on staticmesh etc
-    scale = ZoneRadius / 1024; // magic value found experimentally, depends on staticmesh etc
+    scale = radius / 1024; // magic value found experimentally, depends on staticmesh etc
     scale3d.X = scale;
     scale3D.Y = scale;
-    //scale3D.Z = 500; // we really just want a cylinder, stretch out the mesh vertically beyond map size
     scale3D.Z = 10; // we really just want a cylinder, stretch out the mesh vertically beyond map size
     SetDrawScale3D(scale3d);
 }
@@ -267,50 +303,62 @@ function InformBots()
     }
 }
 
-function StormInfo GetInfo()
+simulated function StormInfo GetInfo()
 {
     return StormData[StormNumber];
 }
 
 defaultproperties
 {
-    RemoteRole=ROLE_SimulatedProxy
+    //storm zone 
     ZoneRadius=8000.0
     MapCenter=vect(0.0,0.0,0.0)
-    DrawType=DT_StaticMesh
-    CullDistance=0.0
-    StaticMesh=StaticMesh'BattleRoyaleSM.StormMesh'
-    ZoneTexture=FinalBlend'BattleRoyaleTex.Storm.StormShader'
-    StormSurgeSound=Sound'StormSurge'
-    //ZoneTexture=FinalBlend'XEffectMat.Shock.ShockCoilFB'
-
-    //StaticMesh=StaticMesh'BattleRoyaleMesh.ONS.EnergonShield'
-    //StaticMesh=StaticMesh'VMStructures.CoreGroup.CoreDivided'
-    //ZoneTexture=FinalBlend'SkaarjPackSkins.Skins.Skaarjw3'
-    NetUpdateFrequency=10.000000    
-
-    //ZTop=150000.0
-    ZTop=0.0
     ShrinkStep=100.0
     TargetExtent=500.0
     MinimumRadius=500.0
 
+    // draw
+    CullDistance=0.0
+    DrawType=DT_StaticMesh
+    StaticMesh=StaticMesh'BattleRoyaleSM.StormMesh'
+    Skins(0)=FinalBlend'BattleRoyaleTex.Storm.StormShader'
+    bOwnerNoSee=False
+
+    // sound
+    StormSurgeSound=Sound'StormSurge'
+
+    // collision
     // needed to get touch event
     bBlockActors=True
     bBlockKarma=True
-    bBlockZeroExtentTraces=false
-    bBlockNonZeroExtentTraces=false
-    bUseCollisionStaticMesh=true
+    bBlockZeroExtentTraces=False
+    bBlockNonZeroExtentTraces=False
+    bUseCollisionStaticMesh=True
 
-    bStasis=false
-    bAlwaysTick=true
-    bAlwaysRelevant=true
+    // network
+    bTravel=False
+    RemoteRole=ROLE_SimulatedProxy
+    NetUpdateFrequency=10.000000    
+    bForceSkelUpdate=True
+    bNetInitialRotation=True
+    bStasis=False
+    bAlwaysTick=True
+    bAlwaysRelevant=True
+    bNetTemporary=False
+    bReplicateMovement=True
+    bUpdateSimulatedPosition=True    
+    bShouldBaseAtStartup=False
 
+    // physics
+    bDirectional=True
     Physics=PHYS_Flying
     bIgnoreOutOfWorld=true
 
-    InitialScaleMultiplier=1.1
+    // storm data
+    //InitialScaleMultiplier=1.1
     StormNumber=0
+    /*
+    // fortnite
     StormData(0)=(StormDuration=200.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=1)
     StormData(1)=(StormDuration=160.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=1)
     StormData(2)=(StormDuration=120.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=2)
@@ -324,8 +372,27 @@ defaultproperties
     StormData(10)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
     StormData(11)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
     StormData(12)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
+    */
 
     /*
+    // fortnite * 0.5
+    StormData(0)=(StormDuration=100.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=1)
+    StormData(1)=(StormDuration=80.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=1)
+    StormData(2)=(StormDuration=60.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=2)
+    StormData(3)=(StormDuration=50.0,ShrinkDuration=15.0,TargetRadiusScale=0.7,OutOfBoundsDPS=3)
+    StormData(4)=(StormDuration=45.0,ShrinkDuration=15.0,TargetRadiusScale=0.7,OutOfBoundsDPS=5)
+    StormData(5)=(StormDuration=40.0,ShrinkDuration=15.0,TargetRadiusScale=0.7,OutOfBoundsDPS=8)
+    StormData(6)=(StormDuration=35.0,ShrinkDuration=10.0,TargetRadiusScale=0.7,OutOfBoundsDPS=13)
+    StormData(7)=(StormDuration=30.0,ShrinkDuration=10.0,TargetRadiusScale=0.7,OutOfBoundsDPS=21)
+    StormData(8)=(StormDuration=15.0,ShrinkDuration=10.0,TargetRadiusScale=0.7,OutOfBoundsDPS=34)
+    StormData(9)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
+    StormData(10)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
+    StormData(11)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
+    StormData(12)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
+    */
+
+    //test
+    InitialScaleMultiplier=0.6
     StormData(0)=(StormDuration=10.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
     StormData(1)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
     StormData(2)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
@@ -345,5 +412,4 @@ defaultproperties
     StormData(16)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
     StormData(17)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
     StormData(18)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
-    */
 }

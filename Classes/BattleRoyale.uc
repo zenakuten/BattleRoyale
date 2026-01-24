@@ -1,31 +1,13 @@
 class BattleRoyale extends xLastManStandingGame;
 
-#EXEC AUDIO IMPORT FILE="Sounds\BusHorn.wav" NAME="BusHorn"
-#EXEC AUDIO IMPORT FILE="Sounds\didntdie.wav" NAME="didntdie"
-#EXEC AUDIO IMPORT FILE="Sounds\die4.wav" NAME="die4"
-#EXEC AUDIO IMPORT FILE="Sounds\goodbye.wav" NAME="goodbye"
-#EXEC AUDIO IMPORT FILE="Sounds\notsofast.wav" NAME="notsofast"
-#EXEC AUDIO IMPORT FILE="Sounds\simpledie.wav" NAME="simpledie"
-#EXEC AUDIO IMPORT FILE="Sounds\playshit.wav" NAME="playshit"
-
-var StormZone Storm;
 var config float StormDurationSeconds;
 var config float StormShrinkLength;
 var config float VehicleRoadRageScaling;
 var config int WarmupPlayerStartTeamNum;
+
+var StormZone Storm;
 var BattleBus Bus;
 var TerrainInfo PrimaryTerrain;
-var int WarmupTimer;
-
-var array<Sound> BusLaunchSounds;
-
-/*
-replication
-{
-    reliable if(Role == ROLE_Authority)
-        Storm, Bus;
-}
-*/
 
 function PostBeginPlay()
 {
@@ -141,6 +123,7 @@ state MatchInProgress
 
         ElapsedTime++;
         GameReplicationInfo.ElapsedTime = ElapsedTime;
+        BRGameReplicationInfo(GameReplicationInfo).GameTimer = ElapsedTime;
     }
 
     function endstate()
@@ -158,6 +141,8 @@ state MatchInProgress
 			PRI.StartTime = 0;
 
 		ElapsedTime = 0;
+        GameReplicationInfo.ElapsedTime = 0;
+        BRGameReplicationInfo(GameReplicationInfo).GameTimer=0;
 		bWaitingToStartMatch = false;
         StartupStage = 5;
         PlayStartupMessage();
@@ -195,7 +180,9 @@ state Warmup
         local bool bReady;
         local int PlayerCount, ReadyCount;
 
-        WarmupTimer--;
+        //make clock tick down
+        //RemainingTime=WarmupTimer;
+
         if ( NeedPlayers() && AddBot() && (RemainingBots > 0) )
         {
 			RemainingBots--;
@@ -209,29 +196,37 @@ state Warmup
             if ( P.IsA('PlayerController') && (P.PlayerReplicationInfo != None) && P.bIsPlayer)
             {
                 PlayerCount++;
-                if(!P.PlayerReplicationInfo.bWaitingPlayer && P.PlayerReplicationInfo.bReadyToPlay)
+                if(P.PlayerReplicationInfo.bWaitingPlayer && P.PlayerReplicationInfo.bReadyToPlay)
                     ReadyCount++;
+
+                if(BRGameReplicationInfo(GameReplicationInfo).WarmupTimer % 3 == 0 && P.IsA('UnrealPlayer'))
+                    //UnrealPlayer(P).PlayStartupMessage(1);
+                    UnrealPlayer(P).ReceiveLocalizedMessage(class'BRStartupMessage', 1, P.PlayerReplicationInfo);
             }
         }
+
         log("warmup:timer p="$PlayerCount$" r="$ReadyCount);
         //bReady=PlayerCount != 0 && ReadyCount != 0 && PlayerCount >= MinPlayers && float(ReadyCount)/float(PlayerCount) > 0.51;
         bReady=PlayerCount != 0 && ReadyCount != 0 && float(ReadyCount)/float(PlayerCount) > 0.51;
 
-        if ( bReady && WarmupTimer > 10)
+        if ( bReady && BRGameReplicationInfo(GameReplicationInfo).WarmupTimer > 10)
         {
-            WarmupTimer = 10;
+            BRGameReplicationInfo(GameReplicationInfo).WarmupTimer = 10;
         }
 
-        if(WarmupTimer < 10)
-            BroadcastLocalizedMessage(class'TimerMessage', WarmupTimer);
-        else if(WarmupTimer % 3 == 0)
-            BroadcastLocalizedMessage(class'BRStartupMessage', 0);
+        if(BRGameReplicationInfo(GameReplicationInfo).WarmupTimer < 10)
+            BroadcastLocalizedMessage(class'TimerMessage', BRGameReplicationInfo(GameReplicationInfo).WarmupTimer);
 
-        if(WarmupTimer <= 0)
+        //if(WarmupTimer % 3 == 0)
+        //    BroadcastLocalizedMessage(class'BRStartupMessage', 0);
+
+        if(BRGameReplicationInfo(GameReplicationInfo).WarmupTimer <= 0)
         {
             RemainingBots=0;
             GotoState('Dropping');
         }
+
+        BRGameReplicationInfo(GameReplicationInfo).WarmupTimer--;
     }
 
     function CheckScore(PlayerReplicationInfo Scorer)
@@ -252,7 +247,7 @@ state Warmup
         local Controller C, Next;
         local int i;
 
-        BRGameReplicationInfo(Level.GRI).bWarmup=false;
+        BRGameReplicationInfo(GameReplicationInfo).bWarmup=false;
         C = Level.ControllerList;
         while(C != None)
         {
@@ -273,29 +268,33 @@ state Warmup
 
         //we mess with these only to allow spec/join to work in warmup
         bWaitingToStartMatch=true;
-        Level.GRI.bMatchHasBegun=false;
+        GameReplicationInfo.bMatchHasBegun=false;
     }
 
     function BeginState()
     {
         local Controller C;
-        BRGameReplicationInfo(Level.GRI).bWarmup=true;
+        BRGameReplicationInfo(GameReplicationInfo).bWarmup=true;
         MaxLives=0;
         for(C=Level.ControllerList;C!=None;C=C.NextController)
         {
             if(C.PlayerReplicationInfo != None)
             { 
                 if(!C.PlayerReplicationInfo.bOnlySpectator)
+                {
                     RestartPlayer(C);
+                    C.PlayerReplicationInfo.bWaitingPlayer=true;
+                }
+
                 C.PlayerReplicationInfo.bReadyToPlay=false;
             }
         }
 
-        WarmupTimer = 90;
+        BRGameReplicationInfo(GameReplicationInfo).WarmupTimer = 90;
         
         //we mess with these only to allow spec/join to work in warmup
         bWaitingToStartMatch=false;
-        Level.GRI.bMatchHasBegun=true;
+        GameReplicationInfo.bMatchHasBegun=true;
 
         SetTimer(1.0, true);
     }
@@ -304,7 +303,18 @@ state Warmup
 // debug
 exec function EndWarmup()
 {
-    WarmupTimer = 10;
+    BRGameReplicationInfo(GameReplicationInfo).WarmupTimer = 10;
+}
+
+exec simulated function ShowBRDebug()
+{
+    local PlayerController PC;
+
+    PC = Level.GetLocalPlayerController();
+    if(PC != None && PC.myHud != None)
+    {
+        HUDBattleRoyale(PC.myHud).bShowDebug = !HUDBattleRoyale(PC.myHud).bShowDebug;
+    }
 }
 
 state Dropping
@@ -349,22 +359,11 @@ state Dropping
         MaxLives=default.MaxLives;
         //RemainingBots=InitialBots;
 
-        Storm = spawn(class'StormZone');
+        Storm = spawn(class'StormZone',self);
         BRGameReplicationInfo(GameReplicationInfo).Storm = Storm;
 
         Bus = spawn(class'BattleBus',self,,vect(0,0,8000));
         BRGameReplicationInfo(GameReplicationInfo).Bus = Bus;
-
-
-        for(C=Level.ControllerList;C!=None;C=C.NextController)
-        {
-            if(PlayerController(C) != None)
-            {
-                Bus.AddPassenger(PlayerController(C));
-                if(C.Pawn != None)
-                    C.Pawn.PlayOwnedSound(BusLaunchSounds[rand(BusLaunchSounds.Length)], SLOT_Interact, 255.0);
-            }
-        }
 
         Bus.Launch(BRGameReplicationInfo(GameReplicationInfo).RadarRange * 0.5, Level.StallZ * 0.5, 1000.0);
 
@@ -752,11 +751,4 @@ defaultproperties
 
     VehicleRoadRageScaling=0.0001
     WarmupPlayerStartTeamNum=3
-    BusLaunchSounds(0)=Sound'BusHorn'
-    BusLaunchSounds(1)=Sound'didntdie'
-    BusLaunchSounds(2)=Sound'die4'
-    BusLaunchSounds(3)=Sound'goodbye'
-    BusLaunchSounds(4)=Sound'notsofast'
-    BusLaunchSounds(5)=Sound'simpledie'
-    BusLaunchSounds(6)=Sound'playshit'
 }

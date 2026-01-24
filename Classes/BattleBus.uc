@@ -1,14 +1,31 @@
 class BattleBus extends Actor;
 
+#EXEC AUDIO IMPORT FILE="Sounds\BusHorn.wav" NAME="BusHorn"
+#EXEC AUDIO IMPORT FILE="Sounds\didntdie.wav" NAME="didntdie"
+#EXEC AUDIO IMPORT FILE="Sounds\die4.wav" NAME="die4"
+#EXEC AUDIO IMPORT FILE="Sounds\goodbye.wav" NAME="goodbye"
+#EXEC AUDIO IMPORT FILE="Sounds\notsofast.wav" NAME="notsofast"
+#EXEC AUDIO IMPORT FILE="Sounds\simpledie.wav" NAME="simpledie"
+#EXEC AUDIO IMPORT FILE="Sounds\playshit.wav" NAME="playshit"
+
 var array<name> Seats;
 var array<BattleBusPassenger> Passengers;
 var float spawntime;
+var int BusLaunchSound;
+var array<Sound> BusLaunchSounds;
+
+replication
+{
+    reliable if ( Role == ROLE_Authority )
+        BusLaunchSound;
+}
 
 function PostBeginPlay()
 {
     super.PostBeginPlay();
 
     spawntime = level.timeseconds;
+    BusLaunchSound = rand(BusLaunchSounds.Length);
 
     // create pawns
     InitPassengers();
@@ -19,7 +36,19 @@ function PostBeginPlay()
 
 simulated function PostNetBeginPlay()
 {
+    local PlayerController PC;
+
     super.PostNetBeginPlay();
+
+    if(Level.NetMode != NM_DedicatedServer)
+    {
+        PC = Level.GetLocalPlayerController();
+        if(PC != None && PC.Pawn != None)
+        {
+            PC.Pawn.PlayOwnedSound(BusLaunchSounds[BusLaunchSound], SLOT_None,2.0);
+        }
+    }
+
     SetTimer(2.5,false);
 }
 
@@ -179,4 +208,12 @@ defaultproperties
     Seats(5)="PassF"
     Seats(6)="PassG"
     Seats(7)="PassH"
+
+    BusLaunchSounds(0)=Sound'BusHorn'
+    BusLaunchSounds(1)=Sound'didntdie'
+    BusLaunchSounds(2)=Sound'die4'
+    BusLaunchSounds(3)=Sound'goodbye'
+    BusLaunchSounds(4)=Sound'notsofast'
+    BusLaunchSounds(5)=Sound'simpledie'
+    BusLaunchSounds(6)=Sound'playshit'
 }

@@ -22,8 +22,13 @@ function bool CheckReplacement(Actor Other, out byte bSuperRelevant)
 		if (Other.IsA('AdrenalinePickup') && !BRYGame.bAllowAdrenaline)
         	return false;
 
-        if(Other.IsA('WeaponLocker'))
+        if(!BRYGame.bAllowPickups && Other.IsA('WeaponLocker') && WeaponLocker(Other).Weapons.Length > 0)
+        {
+            Other.GotoState('Disabled');
+            Other.bHidden=true;
+            Other.SetDrawType(DT_None);
             return false;
+        }
 
 		if( Other.IsA('WeaponPickup') )
 		{
@@ -51,12 +56,6 @@ function bool CheckReplacement(Actor Other, out byte bSuperRelevant)
     {
         ONSVehicleFactory(Other).TeamNum = 0;
     }
-    if(Other.IsA('Vehicle'))
-    {
-        Vehicle(Other).Team = 0;
-        Vehicle(Other).OldTeam = 0;
-        Vehicle(Other).PrevTeam = 0;
-    }
 
 	// Hide all weapon bases apart from super weapons
 	if ( Other.IsA('xPickupBase') )
@@ -72,17 +71,11 @@ function bool CheckReplacement(Actor Other, out byte bSuperRelevant)
         	Other.bHidden = true;
 	}
 
-    if(Other.IsA('WeaponLocker'))
-    {
-        if (!BRYGame.bAllowPickups)
-        {
-            Other.GotoState('Disabled');
-        	Other.bHidden = true;
-        }
-    }
-
     if(Other.IsA('Vehicle'))
     {
+        Vehicle(Other).Team = 0;
+        Vehicle(Other).OldTeam = 0;
+        Vehicle(Other).PrevTeam = 0;
         Vehicle(Other).bTeamLocked=false;
     }
 
