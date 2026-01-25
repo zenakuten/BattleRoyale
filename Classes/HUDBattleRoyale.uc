@@ -1,4 +1,7 @@
-class HUDBattleRoyale extends ONSHUDOnslaught;
+//class HUDBattleRoyale extends ONSHUDOnslaught;
+// i don't want this dependency but easiest way to get damage indicators to work
+// todo fix utcomp to use overlay instead
+class HUDBattleRoyale extends UTComp_ONSHudOnslaught;
 
 var FinalBlend BusIcon;// Timer
 
@@ -49,6 +52,14 @@ simulated function DrawMyScore ( Canvas C )
 {
 }
 */
+
+function DrawEnemyName(Canvas C)
+{
+    if(PawnOwner == None || PawnOwner.PlayerReplicationInfo == None)
+        return;
+
+    super.DrawEnemyName(C);
+}
 
 simulated function PostRender(Canvas C)
 {

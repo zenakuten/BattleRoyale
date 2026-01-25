@@ -14,10 +14,14 @@ simulated function bool SpecialCalcView(out Actor ViewActor, out vector CameraLo
     local Coords C;
 
     ViewActor = self;
-    C = Bus.GetBoneCoords(Seat);
-    CameraLocation = C.Origin;
+    if(Bus != None)
+    {
+        C = Bus.GetBoneCoords(Seat);
+        CameraLocation = C.Origin;
+        return true;
+    }
 
-    return true;
+    return false;
 }
 
 simulated function vector CameraShake()

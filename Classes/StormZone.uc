@@ -67,7 +67,7 @@ function PostBeginPlay()
 
     SetLocation(startloc);
     TargetLocation.Z = startloc.Z;
-    InformBots();
+    //InformBots();
 
     StartTime = Level.TimeSeconds;
     TimeSeconds = Level.TimeSeconds;
@@ -183,7 +183,7 @@ simulated function Tick(float DeltaTime)
             TargetLocation.Z = Location.Z;
             TargetRadius=ZoneRadius * StormData[StormNumber].TargetRadiusScale;
             Velocity = vect(0,0,0);
-            InformBots();
+            //InformBots();
             //Level.GetLocalPlayerController().ClientMessage("Storm shrink stopped, new storm "$StormNumber);
         }        
     }
@@ -346,10 +346,10 @@ defaultproperties
     bIgnoreOutOfWorld=true
 
     // storm data
-    //InitialScaleMultiplier=1.1
     StormNumber=0
     /*
     // fortnite
+    //InitialScaleMultiplier=1.1
     StormData(0)=(StormDuration=200.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=1)
     StormData(1)=(StormDuration=160.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=1)
     StormData(2)=(StormDuration=120.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=2)
@@ -365,8 +365,8 @@ defaultproperties
     StormData(12)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
     */
 
-    /*
     // fortnite * 0.5
+    InitialScaleMultiplier=1.1
     StormData(0)=(StormDuration=100.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=1)
     StormData(1)=(StormDuration=80.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=1)
     StormData(2)=(StormDuration=60.0,ShrinkDuration=20.0,TargetRadiusScale=0.7,OutOfBoundsDPS=2)
@@ -380,8 +380,8 @@ defaultproperties
     StormData(10)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
     StormData(11)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
     StormData(12)=(StormDuration=15.0,ShrinkDuration=5.0,TargetRadiusScale=0.7,OutOfBoundsDPS=55)
-    */
 
+    /*
     //test
     InitialScaleMultiplier=0.6
     StormData(0)=(StormDuration=10.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
@@ -403,4 +403,5 @@ defaultproperties
     StormData(16)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
     StormData(17)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
     StormData(18)=(StormDuration=5.0,ShrinkDuration=5.0,TargetRadiusScale=0.8,OutOfBoundsDPS=0)
+    */
 }

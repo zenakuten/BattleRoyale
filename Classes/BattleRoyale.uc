@@ -131,6 +131,7 @@ state MatchInProgress
     {
 		local PlayerReplicationInfo PRI;
         local Controller C;
+        local int TotalPlayers;
 
 		foreach DynamicActors(class'PlayerReplicationInfo',PRI)
 			PRI.StartTime = 0;
@@ -144,11 +145,23 @@ state MatchInProgress
         StartupStage = 6;
         //RemainingBots = InitialBots;
         RemainingBots = 0;
+        TotalPlayers=0;
         for(C=Level.ControllerList;C!=None;C=C.NextController)
         {
             if(C.IsA('Bot'))
                 RemainingBots++;
+            
+            TotalPlayers++;
         }
+
+        //MaxPlayers=100;
+        while(TotalPlayers < MaxPlayers)
+        {
+            ForceAddBot();
+            TotalPlayers++;
+        }
+
+        RemainingBots = 0;
     }
 }
 
@@ -478,6 +491,12 @@ function RestartPlayer( Controller aPlayer )
         }
     }
 
+    if(aPlayer.PlayerReplicationInfo != None && aPlayer.PlayerReplicationInfo.bOutOfLives)
+    {
+        log("Attempt to restart outoflives player");
+        return;
+    }
+
     if ( (aPlayer.PlayerReplicationInfo == None) || (aPlayer.PlayerReplicationInfo.Team == None) )
         TeamNum = 255;
     else
@@ -525,7 +544,7 @@ function RestartPlayer( Controller aPlayer )
 
     if ( aPlayer.Pawn == None )
     {
-        log("Couldn't spawn player of type "$aPlayer.PawnClass$" at "$StartSpot$" loc="$StartSpot.Location);
+        //log("Couldn't spawn player of type "$aPlayer.PawnClass$" at "$StartSpot$" loc="$StartSpot.Location);
         aPlayer.GotoState('Dead');
         if ( PlayerController(aPlayer) != None )
 			PlayerController(aPlayer).ClientGotoState('Dead','Begin');
@@ -704,6 +723,8 @@ defaultproperties
     //NetWait=0
     MaxLives=1
     TimeLimit=0
+    bTeamGame=False
+
     bAllowPickups=true
     bAllowAdrenaline=true
     bAllowSuperweapons=true
