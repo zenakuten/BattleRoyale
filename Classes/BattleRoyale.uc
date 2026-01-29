@@ -213,9 +213,9 @@ state Warmup
         //bReady=PlayerCount != 0 && ReadyCount != 0 && PlayerCount >= MinPlayers && float(ReadyCount)/float(PlayerCount) > 0.51;
         bReady=PlayerCount != 0 && ReadyCount != 0 && float(ReadyCount)/float(PlayerCount) > 0.51;
 
-        if ( bReady && BRGameReplicationInfo(GameReplicationInfo).WarmupTimer > 10)
+        if ( bReady && BRGameReplicationInfo(GameReplicationInfo).WarmupTimer > 15)
         {
-            BRGameReplicationInfo(GameReplicationInfo).WarmupTimer = 10;
+            BRGameReplicationInfo(GameReplicationInfo).WarmupTimer = 15;
         }
 
         if(BRGameReplicationInfo(GameReplicationInfo).WarmupTimer < 10)
@@ -294,7 +294,7 @@ state Warmup
             }
         }
 
-        BRGameReplicationInfo(GameReplicationInfo).WarmupTimer = 90;
+        BRGameReplicationInfo(GameReplicationInfo).WarmupTimer = 300;
         
         //we mess with these only to allow spec/join to work in warmup
         bWaitingToStartMatch=false;
@@ -307,7 +307,7 @@ state Warmup
 // debug
 exec function EndWarmup()
 {
-    BRGameReplicationInfo(GameReplicationInfo).WarmupTimer = 10;
+    BRGameReplicationInfo(GameReplicationInfo).WarmupTimer = 5;
 }
 
 exec simulated function ShowBRDebug()
